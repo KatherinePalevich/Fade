@@ -33,13 +33,15 @@ final class RashSite {
 
 @Model
 final class RashEntry {
+    var id: UUID
     var timestamp: Date
     var diameterMM: Double
     var photoURL: String?
     
     var site: RashSite?
     
-    init(timestamp: Date, diameterMM: Double, photoURL: String? = nil) {
+    init(id: UUID = UUID(), timestamp: Date, diameterMM: Double, photoURL: String? = nil) {
+        self.id = id
         self.timestamp = timestamp
         self.diameterMM = diameterMM
         self.photoURL = photoURL
@@ -48,12 +50,14 @@ final class RashEntry {
 
 @Model
 final class TreatmentLog {
+    var id: UUID
     var timestamp: Date
     var medicationName: String
     var wasCleaned: Bool
     var notes: String
     
-    init(timestamp: Date, medicationName: String, wasCleaned: Bool, notes: String) {
+    init(id: UUID = UUID(), timestamp: Date, medicationName: String, wasCleaned: Bool, notes: String) {
+        self.id = id
         self.timestamp = timestamp
         self.medicationName = medicationName
         self.wasCleaned = wasCleaned
