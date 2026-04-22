@@ -10,9 +10,13 @@ struct TreatmentFormView: View {
     @State private var customMedName = ""
     @State private var wasCleaned = false
     @State private var notes = ""
+    @State private var logDate = Date()
     @State private var showUpdatePrompt = false
+    @State private var lastCreatedLog: TreatmentLog?
     
     @Binding var selectedTab: Int
+    @Binding var activeTreatmentContext: TreatmentLog?
+    @Binding var isEditMode: Bool
     
     var body: some View {
         NavigationStack {
@@ -30,6 +34,7 @@ struct TreatmentFormView: View {
                 }
                 
                 Section(header: Text("Application Details")) {
+                    DatePicker("Date and Time", selection: $logDate)
                     Toggle("Applied after shower?", isOn: $wasCleaned)
                     TextField("Notes (optional)", text: $notes)
                 }
@@ -42,6 +47,8 @@ struct TreatmentFormView: View {
             .navigationTitle("Log Treatment")
             .alert("Treatment Logged", isPresented: $showUpdatePrompt) {
                 Button("Yes") {
+                    activeTreatmentContext = lastCreatedLog
+                    isEditMode = true
                     selectedTab = 0 // Switch to Body Map
                 }
                 Button("No, thanks", role: .cancel) { }
@@ -53,12 +60,14 @@ struct TreatmentFormView: View {
     
     private func saveTreatment() {
         let medName = standardMeds[selectedMedIndex] == "Custom" ? customMedName : standardMeds[selectedMedIndex]
-        let newLog = TreatmentLog(timestamp: Date(), medicationName: medName, wasCleaned: wasCleaned, notes: notes)
+        let newLog = TreatmentLog(timestamp: logDate, medicationName: medName, wasCleaned: wasCleaned, notes: notes)
         modelContext.insert(newLog)
+        lastCreatedLog = newLog
         
         customMedName = ""
         wasCleaned = false
         notes = ""
+        logDate = Date()
         
         showUpdatePrompt = true
     }

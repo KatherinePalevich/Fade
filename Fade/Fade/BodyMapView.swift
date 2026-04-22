@@ -5,6 +5,9 @@ struct BodyMapView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var sites: [RashSite]
     
+    @Binding var activeTreatmentContext: TreatmentLog?
+    @Binding var isEditMode: Bool
+    
     @State private var selectedSide: BodySide = .front
     @State private var scale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
@@ -15,15 +18,50 @@ struct BodyMapView: View {
     @State private var availableDates: [Date] = []
     
     @State private var editingEntry: RashEntry?
+    @State private var viewingEntry: RashEntry?
+    @State private var currentlyAddingEntry: RashEntry?
     
     var body: some View {
         VStack {
-            Picker("Body Side", selection: $selectedSide) {
-                ForEach(BodySide.allCases) { side in
-                    Text(side.rawValue).tag(side)
+            if isEditMode {
+                VStack(spacing: 4) {
+                    if let context = activeTreatmentContext {
+                        Text("Modifying Rashes")
+                            .font(.headline)
+                        Text("\(context.timestamp, format: .dateTime) - \(context.medicationName)")
+                            .font(.subheadline)
+                    } else {
+                        Text("Modifying Rashes")
+                            .font(.headline)
+                    }
+                    
+                    Button("Done") {
+                        isEditMode = false
+                        activeTreatmentContext = nil
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.top, 4)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.yellow.opacity(0.3))
+            }
+            
+            HStack {
+                Picker("Body Side", selection: $selectedSide) {
+                    ForEach(BodySide.allCases) { side in
+                        Text(side.rawValue).tag(side)
+                    }
+                }
+                .pickerStyle(.segmented)
+                
+                if !isEditMode {
+                    Button("Edit Rashes") {
+                        isEditMode = true
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
-            .pickerStyle(.segmented)
             .padding()
             
             GeometryReader { geometry in
@@ -33,26 +71,62 @@ struct BodyMapView: View {
                         .scaledToFit()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     
-                    ForEach(sites.filter { $0.bodySide == selectedSide }) { site in
-                        if let entry = getEntry(for: site, at: currentDateFilter) {
-                            Circle()
-                                .fill(Color.red.opacity(0.6))
-                                .frame(width: CGFloat(entry.diameterMM), height: CGFloat(entry.diameterMM))
-                                .position(x: site.normalizedX * geometry.size.width,
-                                          y: site.normalizedY * geometry.size.height)
-                                .onTapGesture {
-                                    editingEntry = entry
-                                }
-                        }
-                    }
-                    
                     Color.clear
                         .contentShape(Rectangle())
                         .onTapGesture(coordinateSpace: .local) { location in
-                            let nx = location.x / geometry.size.width
-                            let ny = location.y / geometry.size.height
-                            addNewRashSite(at: nx, y: ny)
+                            if isEditMode {
+                                let nx = location.x / geometry.size.width
+                                let ny = location.y / geometry.size.height
+                                addNewRashSite(at: nx, y: ny)
+                            } else {
+                                viewingEntry = nil
+                            }
                         }
+                    
+                    ForEach(sites.filter { $0.bodySide == selectedSide }) { site in
+                        if let entry = getEntry(for: site, at: currentDateFilter) {
+                            let isActive = entry.diameterMM > 0
+                            let displayDiameter = isActive ? entry.diameterMM : (getLastNonZeroDiameter(for: site, before: entry.timestamp) ?? 20.0)
+                            
+                            ZStack {
+                                if isActive {
+                                    Circle()
+                                        .fill(Color.red.opacity(0.6))
+                                } else {
+                                    Image(systemName: "plus")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.green)
+                                }
+                            }
+                            .frame(width: CGFloat(displayDiameter), height: CGFloat(displayDiameter))
+                                .position(x: site.normalizedX * geometry.size.width,
+                                          y: site.normalizedY * geometry.size.height)
+                                .onTapGesture {
+                                    if isEditMode {
+                                        if let context = activeTreatmentContext {
+                                            if let existing = site.entries.first(where: { $0.timestamp == context.timestamp }) {
+                                                currentlyAddingEntry = nil
+                                                editingEntry = existing
+                                            } else {
+                                                let newEntry = RashEntry(timestamp: context.timestamp, diameterMM: entry.diameterMM)
+                                                site.entries.append(newEntry)
+                                                newEntry.site = site
+                                                updateAvailableDates()
+                                                currentlyAddingEntry = newEntry
+                                                editingEntry = newEntry
+                                            }
+                                        } else {
+                                            currentlyAddingEntry = nil
+                                            editingEntry = entry
+                                        }
+                                    } else {
+                                        viewingEntry = entry
+                                    }
+                                }
+                        }
+                    }
                 }
                 .scaleEffect(scale)
                 .offset(offset)
@@ -75,7 +149,27 @@ struct BodyMapView: View {
                         )
                 )
             }
+            .contentShape(Rectangle())
             .clipped()
+            .overlay {
+                if let viewEntry = viewingEntry,
+                   let firstEntry = viewEntry.site?.entries.sorted(by: { $0.timestamp < $1.timestamp }).first,
+                   let latestEntry = viewEntry.site?.entries.sorted(by: { $0.timestamp < $1.timestamp }).last {
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Rash Info")
+                            .font(.headline)
+                        
+                        Text("First Logged: \(firstEntry.timestamp, format: .dateTime.month().day().year().hour().minute())")
+                        Text("Last Modified: \(latestEntry.timestamp, format: .dateTime.month().day().year().hour().minute())")
+                        Text("Current Size: \(viewEntry.diameterMM, specifier: "%.0f") mm")
+                    }
+                    .padding()
+                    .background(Color(.systemBackground).opacity(0.95))
+                    .cornerRadius(12)
+                    .shadow(radius: 5)
+                }
+            }
             
             // Timeline Scrubber
             VStack {
@@ -106,22 +200,50 @@ struct BodyMapView: View {
             get: { editingEntry },
             set: { editingEntry = $0 }
         )) { entry in
-            RashDetailSheet(entry: entry)
+            RashDetailSheet(entry: entry, onDeleteSite: {
+                if let site = entry.site {
+                    modelContext.delete(site)
+                }
+                editingEntry = nil
+                currentlyAddingEntry = nil
+            }, onCancel: {
+                if let newEntry = currentlyAddingEntry {
+                    if let site = newEntry.site, site.entries.count <= 1 {
+                        modelContext.delete(site)
+                    } else {
+                        modelContext.delete(newEntry)
+                    }
+                }
+                editingEntry = nil
+                currentlyAddingEntry = nil
+            }, onDone: {
+                editingEntry = nil
+                currentlyAddingEntry = nil
+            })
         }
     }
     
     private func addNewRashSite(at x: Double, y: Double) {
         let newSite = RashSite(normalizedX: x, normalizedY: y, bodySide: selectedSide)
-        let entry = RashEntry(timestamp: Date(), diameterMM: 20.0)
+        let timestamp = activeTreatmentContext?.timestamp ?? Date()
+        let entry = RashEntry(timestamp: timestamp, diameterMM: 20.0)
         newSite.entries.append(entry)
         entry.site = newSite
         modelContext.insert(newSite)
         updateAvailableDates()
+        currentlyAddingEntry = entry
         editingEntry = entry
     }
     
     private func getEntry(for site: RashSite, at date: Date) -> RashEntry? {
         site.entries.filter { $0.timestamp <= date }.sorted(by: { $0.timestamp > $1.timestamp }).first
+    }
+    
+    private func getLastNonZeroDiameter(for site: RashSite, before date: Date) -> Double? {
+        site.entries
+            .filter { $0.timestamp <= date && $0.diameterMM > 0 }
+            .sorted(by: { $0.timestamp > $1.timestamp })
+            .first?.diameterMM
     }
     
     private func updateAvailableDates() {
@@ -164,22 +286,58 @@ struct BodyMapView: View {
 
 struct RashDetailSheet: View {
     @Bindable var entry: RashEntry
-    @Environment(\.dismiss) private var dismiss
+    
+    var onDeleteSite: () -> Void
+    var onCancel: () -> Void
+    var onDone: () -> Void
     
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("Rash Size")) {
-                    Slider(value: $entry.diameterMM, in: 5...100, step: 1)
+                    Slider(value: $entry.diameterMM, in: 0...100, step: 1)
                     Text("Diameter: \(entry.diameterMM, specifier: "%.0f") mm")
                 }
                 
-                Button("Done") {
-                    dismiss()
+                Section {
+                    Button(role: .destructive) {
+                        entry.diameterMM = 0
+                        onDone()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("Rash Disappeared / Healed")
+                            Spacer()
+                        }
+                    }
+                }
+                
+                Section {
+                    Button(role: .destructive) {
+                        onDeleteSite()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("Delete Rash Completely")
+                            Spacer()
+                        }
+                    }
                 }
             }
             .navigationTitle("Edit Rash")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        onDone()
+                    }
+                }
+            }
         }
         .presentationDetents([.medium])
     }

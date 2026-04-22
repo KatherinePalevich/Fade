@@ -10,16 +10,18 @@ import SwiftData
 
 struct ContentView: View {
     @State private var selectedTab = 0
+    @State private var activeTreatmentContext: TreatmentLog?
+    @State private var isEditMode = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            BodyMapView()
+            BodyMapView(activeTreatmentContext: $activeTreatmentContext, isEditMode: $isEditMode)
                 .tabItem {
                     Label("Rash Tracker", systemImage: "figure.walk")
                 }
                 .tag(0)
             
-            TreatmentFormView(selectedTab: $selectedTab)
+            TreatmentFormView(selectedTab: $selectedTab, activeTreatmentContext: $activeTreatmentContext, isEditMode: $isEditMode)
                 .tabItem {
                     Label("Treatment", systemImage: "cross.case.fill")
                 }
