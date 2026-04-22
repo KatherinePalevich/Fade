@@ -2,6 +2,15 @@ import SwiftUI
 import SwiftData
 import Charts
 
+fileprivate func colorForMedication(_ name: String) -> Color {
+    switch name {
+    case "Terbinafine 1%": return .purple
+    case "Clotrimazole 1%": return .orange
+    case "Ketoconazole 2%": return .mint
+    default: return .pink
+    }
+}
+
 struct SummaryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \RashEntry.timestamp) private var entries: [RashEntry]
@@ -17,9 +26,22 @@ struct SummaryView: View {
     @State private var filterState: RashFilterState = .active
     @State private var showingResetAlert = false
     
+    @State private var calendarDate: Date = Date()
+    @State private var selectedTreatmentDate: Date?
+    
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    TreatmentCalendarView(
+                        calendarDate: $calendarDate,
+                        selectedTreatmentDate: $selectedTreatmentDate,
+                        treatments: treatments
+                    )
+                } header: {
+                    Text("Treatment Calendar")
+                }
+                
                 Section {
                     if entries.isEmpty {
                         Text("No data to show.")
@@ -64,6 +86,8 @@ struct SummaryView: View {
                                 .padding(.bottom)
                         }
                     }
+                } header: {
+                    Text("Progress")
                 }
                 
                 Section {
@@ -109,6 +133,108 @@ struct SummaryView: View {
             } message: {
                 Text("Are you sure you want to delete all historical logs, active rashes, and treatment histories? This action cannot be undone.")
             }
+        }
+        .overlay {
+            if let selectedDate = selectedTreatmentDate {
+                treatmentOverlay(for: selectedDate)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func treatmentOverlay(for date: Date) -> some View {
+        let dayTreatments = treatments.filter { Calendar.current.isDate($0.timestamp, inSameDayAs: date) }
+        
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    selectedTreatmentDate = nil
+                }
+            
+            VStack {
+                HStack {
+                    Text(date, format: .dateTime.month().day().year())
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        selectedTreatmentDate = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.gray)
+                            .font(.title2)
+                    }
+                }
+                .padding()
+                
+                if dayTreatments.isEmpty {
+                    Text("No treatments remaining.")
+                        .padding()
+                        .onAppear {
+                            selectedTreatmentDate = nil
+                        }
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 16) {
+                            ForEach(dayTreatments) { treatment in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(treatment.medicationName)
+                                        .font(.headline)
+                                        .foregroundColor(colorForMedication(treatment.medicationName))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
+                                    
+                                    Text(treatment.timestamp, format: .dateTime.hour().minute())
+                                        .font(.subheadline)
+                                    
+                                    if treatment.wasCleaned {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "drop.fill").foregroundColor(.blue)
+                                            Text("After shower").font(.caption)
+                                        }
+                                    }
+                                    
+                                    if !treatment.notes.isEmpty {
+                                        Text(treatment.notes)
+                                            .font(.caption)
+                                            .italic()
+                                            .lineLimit(3)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(role: .destructive) {
+                                        modelContext.delete(treatment)
+                                        // The view will reactively update. If all treatments are deleted,
+                                        // the array becomes empty and the overlay dismisses itself via onAppear logic above,
+                                        // but we can also explicitly dismiss if it was the last one.
+                                        if dayTreatments.count == 1 {
+                                            selectedTreatmentDate = nil
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Spacer()
+                                            Image(systemName: "trash")
+                                            Text("Delete")
+                                            Spacer()
+                                        }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                }
+                                .padding()
+                                .frame(width: 200, height: 220)
+                                .background(Color(UIColor.secondarySystemGroupedBackground))
+                                .cornerRadius(12)
+                                .shadow(radius: 2)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .background(Color(UIColor.systemGroupedBackground))
+            .cornerRadius(16)
+            .padding()
         }
     }
     
@@ -190,5 +316,159 @@ struct SummaryView: View {
         }
         
         return dailyTotals
+    }
+}
+
+struct TreatmentCalendarView: View {
+    @Binding var calendarDate: Date
+    @Binding var selectedTreatmentDate: Date?
+    let treatments: [TreatmentLog]
+    
+    private var daysInMonth: [Date] {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: calendarDate)
+        guard let startOfMonth = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: startOfMonth) else { return [] }
+        
+        return range.compactMap { day -> Date? in
+            calendar.date(byAdding: .day, value: day - 1, to: startOfMonth)
+        }
+    }
+    
+    private var firstWeekday: Int {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month], from: calendarDate)
+        guard let startOfMonth = calendar.date(from: components) else { return 1 }
+        return calendar.component(.weekday, from: startOfMonth)
+    }
+    
+    private func previousMonth() {
+        if let newDate = Calendar.current.date(byAdding: .month, value: -1, to: calendarDate) {
+            calendarDate = newDate
+        }
+    }
+    
+    private func nextMonth() {
+        if let newDate = Calendar.current.date(byAdding: .month, value: 1, to: calendarDate) {
+            calendarDate = newDate
+        }
+    }
+    
+    var body: some View {
+        VStack {
+            // Header
+            HStack {
+                Button(action: previousMonth) {
+                    Image(systemName: "chevron.left")
+                        .padding()
+                }
+                .buttonStyle(.borderless)
+                
+                Spacer()
+                Text(calendarDate, format: .dateTime.month(.wide).year())
+                    .font(.headline)
+                Spacer()
+                
+                Button(action: nextMonth) {
+                    Image(systemName: "chevron.right")
+                        .padding()
+                }
+                .buttonStyle(.borderless)
+            }
+            
+            // Grid
+            let days = daysInMonth
+            let leadingEmptyCells = firstWeekday - 1
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
+                // Weekday Headers
+                ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                    Text(day).font(.caption).bold().foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+                
+                // Empty cells
+                ForEach(0..<leadingEmptyCells, id: \.self) { _ in
+                    Color.clear.frame(height: 60)
+                }
+                
+                // Day cells
+                ForEach(days, id: \.self) { date in
+                    let dayTreatments = treatments.filter { Calendar.current.isDate($0.timestamp, inSameDayAs: date) }
+                    let isToday = Calendar.current.isDateInToday(date)
+                    
+                    Button {
+                        if !dayTreatments.isEmpty {
+                            selectedTreatmentDate = date
+                        }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text("\(Calendar.current.component(.day, from: date))")
+                                .font(.caption)
+                                .fontWeight(isToday ? .bold : .regular)
+                                .foregroundColor(isToday ? .white : .primary)
+                                .padding(4)
+                                .background(isToday ? Color.blue : Color.clear)
+                                .clipShape(Circle())
+                            
+                            if !dayTreatments.isEmpty {
+                                VStack(spacing: 2) {
+                                    ForEach(dayTreatments.prefix(3)) { treatment in
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "plus")
+                                                .foregroundColor(colorForMedication(treatment.medicationName))
+                                                .font(.system(size: 8, weight: .bold))
+                                            if treatment.wasCleaned {
+                                                Image(systemName: "drop.fill")
+                                                    .foregroundColor(.blue)
+                                                    .font(.system(size: 8))
+                                            }
+                                        }
+                                    }
+                                    if dayTreatments.count > 3 {
+                                        Text("...")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .padding(.vertical, 4)
+                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(dayTreatments.isEmpty)
+                }
+            }
+            .padding(.horizontal, 4)
+            
+            // Legend
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Medication Key").font(.caption).foregroundColor(.secondary).padding(.top, 8)
+                HStack(spacing: 12) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus").foregroundColor(.purple).font(.caption2)
+                        Text("Terbinafine").font(.caption2)
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus").foregroundColor(.orange).font(.caption2)
+                        Text("Clotrimazole").font(.caption2)
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus").foregroundColor(.mint).font(.caption2)
+                        Text("Ketoconazole").font(.caption2)
+                    }
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus").foregroundColor(.pink).font(.caption2)
+                        Text("Custom").font(.caption2)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
+        }
     }
 }
