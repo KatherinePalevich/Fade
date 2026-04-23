@@ -10,6 +10,10 @@ import SwiftData
 
 @main
 struct FadeApp: App {
+    init() {
+        _ = NotificationManager.shared
+    }
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             RashSite.self, RashEntry.self, TreatmentLog.self

@@ -25,6 +25,7 @@ struct SummaryView: View {
     
     @State private var filterState: RashFilterState = .active
     @State private var showingResetAlert = false
+    @State private var showingNotificationSettings = false
     
     @State private var calendarDate: Date = Date()
     @State private var selectedTreatmentDate: Date?
@@ -83,7 +84,18 @@ struct SummaryView: View {
                             
                             Text("Healing Progress vs Treatments")
                                 .font(.headline)
-                                .padding(.bottom)
+                            
+                            HStack(spacing: 16) {
+                                HStack(spacing: 4) {
+                                    Circle().fill(.red).frame(width: 8, height: 8)
+                                    Text("Total Rash Area").font(.caption).foregroundColor(.secondary)
+                                }
+                                HStack(spacing: 4) {
+                                    Image(systemName: "cross.fill").foregroundColor(.blue).font(.caption2)
+                                    Text("Treatment Logged").font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.bottom)
                         }
                     }
                 } header: {
@@ -116,6 +128,13 @@ struct SummaryView: View {
             }
             .navigationTitle("Summary")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingNotificationSettings = true
+                    } label: {
+                        Image(systemName: "bell")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(role: .destructive) {
                         showingResetAlert = true
@@ -132,6 +151,9 @@ struct SummaryView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Are you sure you want to delete all historical logs, active rashes, and treatment histories? This action cannot be undone.")
+            }
+            .sheet(isPresented: $showingNotificationSettings) {
+                NotificationSettingsView()
             }
         }
         .overlay {
