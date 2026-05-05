@@ -12,6 +12,8 @@ fileprivate func colorForMedication(_ name: String) -> Color {
 }
 
 struct SummaryView: View {
+    @Binding var selectedTab: Int
+    @Binding var editingTreatmentLog: TreatmentLog?
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \RashEntry.timestamp) private var entries: [RashEntry]
     @Query(sort: \TreatmentLog.timestamp) private var treatments: [TreatmentLog]
@@ -248,6 +250,11 @@ struct SummaryView: View {
                                 .background(Color(UIColor.secondarySystemGroupedBackground))
                                 .cornerRadius(12)
                                 .shadow(radius: 2)
+                                .onTapGesture {
+                                    editingTreatmentLog = treatment
+                                    selectedTab = 1
+                                    selectedTreatmentDate = nil
+                                }
                             }
                         }
                         .padding()

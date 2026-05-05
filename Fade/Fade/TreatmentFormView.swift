@@ -17,6 +17,7 @@ struct TreatmentFormView: View {
     @Binding var selectedTab: Int
     @Binding var activeTreatmentContext: TreatmentLog?
     @Binding var isEditMode: Bool
+    @Binding var editingTreatmentLog: TreatmentLog?
     
     var body: some View {
         NavigationStack {
@@ -39,12 +40,32 @@ struct TreatmentFormView: View {
                     TextField("Notes (optional)", text: $notes)
                 }
                 
-                Button("Log Treatment") {
+                Button(editingTreatmentLog != nil ? "Update Log Treatment" : "Log Treatment") {
                     saveTreatment()
                 }
                 .disabled(standardMeds[selectedMedIndex] == "Custom" && customMedName.isEmpty)
             }
-            .navigationTitle("Log Treatment")
+            .navigationTitle(editingTreatmentLog != nil ? "Update Log Treatment" : "Log Treatment")
+            .onChange(of: editingTreatmentLog) { newLog in
+                if let log = newLog {
+                    if let idx = standardMeds.firstIndex(of: log.medicationName) {
+                        selectedMedIndex = idx
+                        customMedName = ""
+                    } else {
+                        selectedMedIndex = standardMeds.firstIndex(of: "Custom") ?? 3
+                        customMedName = log.medicationName
+                    }
+                    wasCleaned = log.wasCleaned
+                    notes = log.notes
+                    logDate = log.timestamp
+                } else {
+                    customMedName = ""
+                    wasCleaned = false
+                    notes = ""
+                    logDate = Date()
+                    selectedMedIndex = 0
+                }
+            }
             .alert("Treatment Logged", isPresented: $showUpdatePrompt) {
                 Button("Yes") {
                     activeTreatmentContext = lastCreatedLog
@@ -60,15 +81,26 @@ struct TreatmentFormView: View {
     
     private func saveTreatment() {
         let medName = standardMeds[selectedMedIndex] == "Custom" ? customMedName : standardMeds[selectedMedIndex]
-        let newLog = TreatmentLog(timestamp: logDate, medicationName: medName, wasCleaned: wasCleaned, notes: notes)
-        modelContext.insert(newLog)
-        lastCreatedLog = newLog
         
-        customMedName = ""
-        wasCleaned = false
-        notes = ""
-        logDate = Date()
-        
-        showUpdatePrompt = true
+        if let existingLog = editingTreatmentLog {
+            existingLog.medicationName = medName
+            existingLog.wasCleaned = wasCleaned
+            existingLog.notes = notes
+            existingLog.timestamp = logDate
+            
+            editingTreatmentLog = nil
+            selectedTab = 2 // Return to Summary view
+        } else {
+            let newLog = TreatmentLog(timestamp: logDate, medicationName: medName, wasCleaned: wasCleaned, notes: notes)
+            modelContext.insert(newLog)
+            lastCreatedLog = newLog
+            
+            customMedName = ""
+            wasCleaned = false
+            notes = ""
+            logDate = Date()
+            
+            showUpdatePrompt = true
+        }
     }
 }

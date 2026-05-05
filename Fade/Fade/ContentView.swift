@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var activeTreatmentContext: TreatmentLog?
     @State private var isEditMode = false
+    @State private var editingTreatmentLog: TreatmentLog?
     @StateObject private var notificationManager = NotificationManager.shared
     
     var body: some View {
@@ -22,17 +23,22 @@ struct ContentView: View {
                 }
                 .tag(0)
             
-            TreatmentFormView(selectedTab: $selectedTab, activeTreatmentContext: $activeTreatmentContext, isEditMode: $isEditMode)
+            TreatmentFormView(selectedTab: $selectedTab, activeTreatmentContext: $activeTreatmentContext, isEditMode: $isEditMode, editingTreatmentLog: $editingTreatmentLog)
                 .tabItem {
                     Label("Treatment", systemImage: "cross.case.fill")
                 }
                 .tag(1)
             
-            SummaryView()
+            SummaryView(selectedTab: $selectedTab, editingTreatmentLog: $editingTreatmentLog)
                 .tabItem {
                     Label("Summary", systemImage: "chart.xyaxis.line")
                 }
                 .tag(2)
+        }
+        .onChange(of: selectedTab) { newTab in
+            if newTab != 1 {
+                editingTreatmentLog = nil
+            }
         }
         .onChange(of: notificationManager.selectedTabFromNotification) { newValue in
             if let newTab = newValue {
