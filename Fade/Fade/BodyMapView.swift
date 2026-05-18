@@ -26,7 +26,8 @@ struct BodyMapView: View {
     @State private var currentlyAddingEntry: RashEntry?
     
     var body: some View {
-        VStack {
+        NavigationStack {
+            VStack {
             if isEditMode {
                 VStack(spacing: 4) {
                     if let context = activeTreatmentContext {
@@ -52,6 +53,11 @@ struct BodyMapView: View {
             }
             
             HStack {
+                NavigationLink(destination: DocumentWarningView()) {
+                    Image(systemName: "camera")
+                }
+                .buttonStyle(.bordered)
+                
                 Button(action: {
                     showingMeasurementSettings = true
                 }) {
@@ -97,7 +103,7 @@ struct BodyMapView: View {
                         }
                     
                     ForEach(sites.filter { $0.bodySide == selectedSide }) { site in
-                        if let entry = getEntry(for: site, at: currentDateFilter) {
+                        if let nx = site.normalizedX, let ny = site.normalizedY, let entry = getEntry(for: site, at: currentDateFilter) {
                             let isActive = entry.diameterMM > 0
                             let displayDiameter = isActive ? entry.diameterMM : (getLastNonZeroDiameter(for: site, before: entry.timestamp) ?? 20.0)
                             
@@ -116,8 +122,8 @@ struct BodyMapView: View {
                                 }
                             }
                             .frame(width: CGFloat(displayDiameterPoints), height: CGFloat(displayDiameterPoints))
-                                .position(x: site.normalizedX * geometry.size.width,
-                                          y: site.normalizedY * geometry.size.height)
+                                .position(x: nx * geometry.size.width,
+                                          y: ny * geometry.size.height)
                                 .onTapGesture {
                                     if isEditMode {
                                         if let context = activeTreatmentContext {
@@ -145,71 +151,16 @@ struct BodyMapView: View {
                 }
                 .scaleEffect(scale)
                 .offset(offset)
-                .gesture(
-                    MagnifyGesture()
-                        .onChanged { value in
-                            let newScale = lastScale * value.magnification
-                            scale = min(max(newScale, 1.0), 20.0)
-                        }
-                        .onEnded { value in
-                            lastScale = scale
-                        }
-                        .simultaneously(with: DragGesture()
-                            .onChanged { value in
-                                offset = CGSize(
-                                    width: lastOffset.width + value.translation.width,
-                                    height: lastOffset.height + value.translation.height
-                                )
-                            }
-                            .onEnded { _ in
-                                lastOffset = offset
-                            }
-                        )
-                )
+                .gesture(mapGestures)
             }
             .contentShape(Rectangle())
             .clipped()
             .overlay {
-                if let viewEntry = viewingEntry,
-                   let firstEntry = viewEntry.site?.entries.sorted(by: { $0.timestamp < $1.timestamp }).first,
-                   let latestEntry = viewEntry.site?.entries.sorted(by: { $0.timestamp < $1.timestamp }).last {
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Rash Info")
-                            .font(.headline)
-                        
-                        Text("First Logged: \(firstEntry.timestamp, format: .dateTime.month().day().year().hour().minute())")
-                        Text("Last Modified: \(latestEntry.timestamp, format: .dateTime.month().day().year().hour().minute())")
-                        Text("Current Size: \(viewEntry.diameterMM, specifier: "%.0f") mm")
-                    }
-                    .padding()
-                    .background(Color(.systemBackground).opacity(0.95))
-                    .cornerRadius(12)
-                    .shadow(radius: 5)
-                }
+                rashInfoOverlay
             }
             
             // Timeline Scrubber
-            VStack {
-                if !availableDates.isEmpty {
-                    Text("Timeline: \(currentDateFilter, format: .dateTime.month().day().year())")
-                    HStack {
-                        Button(action: toggleTimeLapse) {
-                            Image(systemName: isTimeLapseActive ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.title)
-                        }
-                        
-                        Slider(value: Binding(get: {
-                            currentDateFilter.timeIntervalSince1970
-                        }, set: { newValue in
-                            currentDateFilter = Date(timeIntervalSince1970: newValue)
-                        }), in: availableDates.first!.timeIntervalSince1970...Date().timeIntervalSince1970)
-                    }
-                } else {
-                    Text("Tap to add a rash site.")
-                }
-            }
-            .padding()
+            timelineScrubber
         }
         .onAppear {
             updateAvailableDates()
@@ -242,6 +193,74 @@ struct BodyMapView: View {
                 currentlyAddingEntry = nil
             })
         }
+        }
+    }
+    
+    @ViewBuilder
+    private var rashInfoOverlay: some View {
+        if let viewEntry = viewingEntry,
+           let firstEntry = viewEntry.site?.entries.sorted(by: { $0.timestamp < $1.timestamp }).first,
+           let latestEntry = viewEntry.site?.entries.sorted(by: { $0.timestamp < $1.timestamp }).last {
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Rash Info")
+                    .font(.headline)
+                
+                Text("First Logged: \(firstEntry.timestamp, format: .dateTime.month().day().year().hour().minute())")
+                Text("Last Modified: \(latestEntry.timestamp, format: .dateTime.month().day().year().hour().minute())")
+                Text("Current Size: \(viewEntry.diameterMM, specifier: "%.0f") mm")
+            }
+            .padding()
+            .background(Color(.systemBackground).opacity(0.95))
+            .cornerRadius(12)
+            .shadow(radius: 5)
+        }
+    }
+    
+    @ViewBuilder
+    private var timelineScrubber: some View {
+        VStack {
+            if !availableDates.isEmpty {
+                Text("Timeline: \(currentDateFilter, format: .dateTime.month().day().year())")
+                HStack {
+                    Button(action: toggleTimeLapse) {
+                        Image(systemName: isTimeLapseActive ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.title)
+                    }
+                    
+                    Slider(value: Binding(get: {
+                        currentDateFilter.timeIntervalSince1970
+                    }, set: { newValue in
+                        currentDateFilter = Date(timeIntervalSince1970: newValue)
+                    }), in: availableDates.first!.timeIntervalSince1970...Date().timeIntervalSince1970)
+                }
+            } else {
+                Text("Tap to add a rash site.")
+            }
+        }
+        .padding()
+    }
+    
+    private var mapGestures: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                let newScale = lastScale * value.magnification
+                scale = min(max(newScale, 1.0), 20.0)
+            }
+            .onEnded { value in
+                lastScale = scale
+            }
+            .simultaneously(with: DragGesture()
+                .onChanged { value in
+                    offset = CGSize(
+                        width: lastOffset.width + value.translation.width,
+                        height: lastOffset.height + value.translation.height
+                    )
+                }
+                .onEnded { _ in
+                    lastOffset = offset
+                }
+            )
     }
     
     private func addNewRashSite(at x: Double, y: Double) {
