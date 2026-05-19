@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var isEditMode = false
     @State private var editingTreatmentLog: TreatmentLog?
     @StateObject private var notificationManager = NotificationManager.shared
+    @Environment(\.scenePhase) var scenePhase
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -46,6 +47,7 @@ struct ContentView: View {
                 notificationManager.selectedTabFromNotification = nil
             }
         }
+        .blur(radius: scenePhase != .active ? 15 : 0)
     }
 }
 
