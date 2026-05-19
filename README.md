@@ -2,6 +2,16 @@
 
 Fade is a specialized health utility application for iOS designed to help users meticulously monitor the progression and treatment of fungal skin infections. By combining a 2D body-mapping interface, a robust treatment logging system, and a comprehensive photo tracker, Fade provides actionable insights into healing progress and medication adherence.
 
+## Summary Page
+| Treatment Calendar | Progress Chart and Insights | Logged Rashes |  Notification Settings |
+| :---: | :---: | :---: | :---: |
+| <img width="300" alt="image" src="https://github.com/user-attachments/assets/de793820-7095-4d51-bc11-9570f6ad14b2" /> | <img width="300" alt="image" src="https://github.com/user-attachments/assets/527a7c77-fb6e-4a97-a890-9eeacac986e9" /> |  <img width="300" alt="image" src="https://github.com/user-attachments/assets/bc1f0adb-c5cb-4119-a224-4ae6c439a6bb" /> | <img width="300" alt="image" src="https://github.com/user-attachments/assets/cc7509cd-efc8-4330-980b-e04dd2d368f3" />|
+
+## Body Rash Map
+| Visualize Rashes | Set Measurements | Crop and Align Rash Photos | View Progress of Rashes Through Photos |
+| :---: | :---: | :---: | :---: |
+| <img width="300" alt="image" src="https://github.com/user-attachments/assets/7fcc5cfc-9ce6-4afb-92a9-57f3d5d9dfcb" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/ff7a427c-3633-4bc6-b1d5-d87dffd69e19" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/afed6e0b-aa29-48bf-ab89-b881804e69f4" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/8e7ab42e-e87f-4a68-bcb6-acc005516625" /> |
+
 ## Core Features
 
 ### 1. Interactive Body Map (Rash Tracker)
