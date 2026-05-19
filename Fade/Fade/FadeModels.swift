@@ -58,13 +58,15 @@ final class TreatmentLog {
     var timestamp: Date
     var medicationName: String
     var wasCleaned: Bool
+    var changedUndergarments: Bool = false
     var notes: String
     
-    init(id: UUID = UUID(), timestamp: Date, medicationName: String, wasCleaned: Bool, notes: String) {
+    init(id: UUID = UUID(), timestamp: Date, medicationName: String, wasCleaned: Bool, changedUndergarments: Bool = false, notes: String) {
         self.id = id
         self.timestamp = timestamp
         self.medicationName = medicationName
         self.wasCleaned = wasCleaned
+        self.changedUndergarments = changedUndergarments
         self.notes = notes
     }
 }

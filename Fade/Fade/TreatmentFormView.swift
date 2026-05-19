@@ -9,6 +9,7 @@ struct TreatmentFormView: View {
     @State private var selectedMedIndex = 0
     @State private var customMedName = ""
     @State private var wasCleaned = false
+    @State private var changedUndergarments = false
     @State private var notes = ""
     @State private var logDate = Date()
     @State private var showUpdatePrompt = false
@@ -37,6 +38,7 @@ struct TreatmentFormView: View {
                 Section(header: Text("Application Details")) {
                     DatePicker("Date and Time", selection: $logDate)
                     Toggle("Applied after shower?", isOn: $wasCleaned)
+                    Toggle("Changed base undergarments?", isOn: $changedUndergarments)
                     TextField("Notes (optional)", text: $notes)
                 }
                 
@@ -56,11 +58,13 @@ struct TreatmentFormView: View {
                         customMedName = log.medicationName
                     }
                     wasCleaned = log.wasCleaned
+                    changedUndergarments = log.changedUndergarments
                     notes = log.notes
                     logDate = log.timestamp
                 } else {
                     customMedName = ""
                     wasCleaned = false
+                    changedUndergarments = false
                     notes = ""
                     logDate = Date()
                     selectedMedIndex = 0
@@ -85,18 +89,20 @@ struct TreatmentFormView: View {
         if let existingLog = editingTreatmentLog {
             existingLog.medicationName = medName
             existingLog.wasCleaned = wasCleaned
+            existingLog.changedUndergarments = changedUndergarments
             existingLog.notes = notes
             existingLog.timestamp = logDate
             
             editingTreatmentLog = nil
             selectedTab = 2 // Return to Summary view
         } else {
-            let newLog = TreatmentLog(timestamp: logDate, medicationName: medName, wasCleaned: wasCleaned, notes: notes)
+            let newLog = TreatmentLog(timestamp: logDate, medicationName: medName, wasCleaned: wasCleaned, changedUndergarments: changedUndergarments, notes: notes)
             modelContext.insert(newLog)
             lastCreatedLog = newLog
             
             customMedName = ""
             wasCleaned = false
+            changedUndergarments = false
             notes = ""
             logDate = Date()
             

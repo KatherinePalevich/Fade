@@ -218,6 +218,13 @@ struct SummaryView: View {
                                         }
                                     }
                                     
+                                    if treatment.changedUndergarments {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "tshirt.fill").foregroundColor(.brown)
+                                            Text("Changed clothes").font(.caption)
+                                        }
+                                    }
+                                    
                                     if !treatment.notes.isEmpty {
                                         Text(treatment.notes)
                                             .font(.caption)
@@ -450,6 +457,11 @@ struct TreatmentCalendarView: View {
                                             if treatment.wasCleaned {
                                                 Image(systemName: "drop.fill")
                                                     .foregroundColor(.blue)
+                                                    .font(.system(size: 8))
+                                            }
+                                            if treatment.changedUndergarments {
+                                                Image(systemName: "tshirt.fill")
+                                                    .foregroundColor(.brown)
                                                     .font(.system(size: 8))
                                             }
                                         }
