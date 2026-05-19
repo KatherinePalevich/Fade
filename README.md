@@ -1,4 +1,4 @@
-# Fade: Fungal Skin Infection Tracker
+# <img width="80" alt="Untitled_Artwork 4" src="https://github.com/user-attachments/assets/22051cdd-29d6-43c0-a7db-37d3ae4f76c4" /> - Fade: Fungal Skin Infection Tracker
 
 Fade is a specialized health utility application for iOS designed to help users meticulously monitor the progression and treatment of fungal skin infections. By combining a 2D body-mapping interface, a robust treatment logging system, and a comprehensive photo tracker, Fade provides actionable insights into healing progress and medication adherence.
 
