@@ -6,6 +6,7 @@ struct BodyMapView: View {
     @Query private var sites: [RashSite]
     
     @AppStorage("waistWidthCM") private var waistWidthCM: Double = 32.0
+    @AppStorage("heightCM") private var heightCM: Double = 162.56
     @State private var showingMeasurementSettings = false
     
     @Binding var activeTreatmentContext: TreatmentLog?
@@ -85,22 +86,23 @@ struct BodyMapView: View {
                 ZStack {
                     Color.white.ignoresSafeArea()
                     
-                    Image("HumanSilhouette")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture(coordinateSpace: .local) { location in
-                            if isEditMode {
-                                let nx = location.x / geometry.size.width
-                                let ny = location.y / geometry.size.height
-                                addNewRashSite(at: nx, y: ny)
-                            } else {
-                                viewingEntry = nil
+                    ZStack {
+                        Image("HumanSilhouette")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture(coordinateSpace: .local) { location in
+                                if isEditMode {
+                                    let nx = location.x / geometry.size.width
+                                    let ny = location.y / geometry.size.height
+                                    addNewRashSite(at: nx, y: ny)
+                                } else {
+                                    viewingEntry = nil
+                                }
                             }
-                        }
                     
                     ForEach(sites.filter { $0.bodySide == selectedSide }) { site in
                         if let nx = site.normalizedX, let ny = site.normalizedY, let entry = getEntry(for: site, at: currentDateFilter) {
@@ -122,8 +124,9 @@ struct BodyMapView: View {
                                 }
                             }
                             .frame(width: CGFloat(displayDiameterPoints), height: CGFloat(displayDiameterPoints))
-                                .position(x: nx * geometry.size.width,
-                                          y: ny * geometry.size.height)
+                            .scaleEffect(x: 1.0, y: 162.56 / heightCM) // Un-distort the circle
+                            .position(x: nx * geometry.size.width,
+                                      y: ny * geometry.size.height)
                                 .onTapGesture {
                                     if isEditMode {
                                         if let context = activeTreatmentContext {
@@ -148,6 +151,8 @@ struct BodyMapView: View {
                                 }
                         }
                     }
+                    }
+                    .scaleEffect(x: 1.0, y: heightCM / 162.56)
                 }
                 .scaleEffect(scale)
                 .offset(offset)
@@ -386,28 +391,42 @@ struct RashDetailSheet: View {
 struct WaistMeasurementSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @AppStorage("waistWidthCM") private var waistWidthCM: Double = 32.0
+    @AppStorage("heightCM") private var heightCM: Double = 162.56
     
-    @State private var inputValue: String = ""
+    @State private var waistInputValue: String = ""
+    @State private var heightInputValue: String = ""
     @State private var isCm: Bool = true
     
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Waist Width"), footer: Text("Set your waist width so that rash sizes appear proportional to your body on the map.")) {
+                Section(header: Text("Measurements"), footer: Text("Set your height and waist width so that rash sizes appear proportional to your body on the map.")) {
+                    Picker("Unit", selection: $isCm) {
+                        Text("cm").tag(true)
+                        Text("inches").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    
                     HStack {
-                        TextField("Measurement", text: $inputValue)
+                        Text("Height")
+                        Spacer()
+                        TextField("Height", text: $heightInputValue)
                             .keyboardType(.decimalPad)
-                        
-                        Picker("Unit", selection: $isCm) {
-                            Text("cm").tag(true)
-                            Text("inches").tag(false)
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 120)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                    }
+                    
+                    HStack {
+                        Text("Waist Width")
+                        Spacer()
+                        TextField("Waist", text: $waistInputValue)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
                     }
                 }
             }
-            .navigationTitle("Measurement")
+            .navigationTitle("Measurements")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -422,26 +441,30 @@ struct WaistMeasurementSettingsView: View {
                 }
             }
             .onAppear {
-                inputValue = String(format: "%.1f", isCm ? waistWidthCM : waistWidthCM / 2.54)
+                waistInputValue = String(format: "%.1f", isCm ? waistWidthCM : waistWidthCM / 2.54)
+                heightInputValue = String(format: "%.1f", isCm ? heightCM : heightCM / 2.54)
             }
             .onChange(of: isCm) { oldValue, newValue in
-                if let val = Double(inputValue) {
-                    if newValue { // inches to cm
-                        inputValue = String(format: "%.1f", val * 2.54)
-                    } else { // cm to inches
-                        inputValue = String(format: "%.1f", val / 2.54)
-                    }
+                if let waistVal = Double(waistInputValue.replacingOccurrences(of: ",", with: ".")) {
+                    waistInputValue = String(format: "%.1f", newValue ? waistVal * 2.54 : waistVal / 2.54)
+                }
+                if let heightVal = Double(heightInputValue.replacingOccurrences(of: ",", with: ".")) {
+                    heightInputValue = String(format: "%.1f", newValue ? heightVal * 2.54 : heightVal / 2.54)
                 }
             }
         }
-        .presentationDetents([.fraction(0.35)])
+        .presentationDetents([.fraction(0.45)])
     }
     
     private func save() {
-        // Convert comma to dot for decimal parsing in some locales
-        let sanitizedInput = inputValue.replacingOccurrences(of: ",", with: ".")
-        if let val = Double(sanitizedInput) {
+        let sanitizedWaist = waistInputValue.replacingOccurrences(of: ",", with: ".")
+        if let val = Double(sanitizedWaist) {
             waistWidthCM = isCm ? val : val * 2.54
+        }
+        
+        let sanitizedHeight = heightInputValue.replacingOccurrences(of: ",", with: ".")
+        if let val = Double(sanitizedHeight) {
+            heightCM = isCm ? val : val * 2.54
         }
         dismiss()
     }
