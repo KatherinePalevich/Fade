@@ -1,62 +1,41 @@
-# Specification: Fade
+# Fade: Fungal Skin Infection Tracker
 
-## 1. Executive Summary
-Fade is a specialized health utility for monitoring the progression and treatment of fungal skin infections. The app utilizes a 2D body-mapping interface to visualize rash sites and a logging system to correlate medication adherence with healing progress.
+Fade is a specialized health utility application for iOS designed to help users meticulously monitor the progression and treatment of fungal skin infections. By combining a 2D body-mapping interface, a robust treatment logging system, and a comprehensive photo tracker, Fade provides actionable insights into healing progress and medication adherence.
 
-## 2. Core Data Models
-The agent should implement the following using SwiftData:
+## Core Features
 
-**RashSite**
-* `id`: UUID
-* `location`: CGPoint (Normalized coordinates relative to the body outline)
-* `bodySide`: Enum (Front, Back)
-* `entries`: [RashEntry] (Relationship)
+### 1. Interactive Body Map (Rash Tracker)
+- **Precise Localization:** A zoomable, pannable interface using high-resolution outlines of a human figure (Front and Back views).
+- **Customizable Proportions:** User-adjustable waist width to ensure rash sizes are rendered with correct proportions for the individual's body type.
+- **Fluid Interaction:** Continuous, fluid zooming and panning for precise placement of small rash sites.
+- **Robust Management:** Long-press to drop a marker, adjust the diameter of the rash, and easily delete or edit individual rash entries. 
 
-**RashEntry**
-* `timestamp`: Date
-* `diameterMM`: Double
-* `photoURL`: String? (Optional for future expansion)
+### 2. Advanced Rash Photo Tracking
+- **Visual Progress:** Upload and track photos of specific rash sites over time.
+- **Photo Alignment Tool:** Overlay new photos onto previous ones with transparency to ensure consistent angles and distances for accurate comparisons.
+- **Height-Based Scaling:** Distort and stretch reference images vertically based on the user's height input (cm or inches) for an accurate visual representation proportional to their actual height.
+- **Accurate Metadata:** Automatically extracts the original creation date and flash status directly from the photo's EXIF data, ensuring timeline accuracy.
 
-**TreatmentLog**
-* `timestamp`: Date
-* `medicationName`: String
-* `wasCleaned`: Bool (Applied after shower)
-* `notes`: String
+### 3. Comprehensive Treatment Logging
+- **Streamlined Workflow:** A fast, intuitive form to log medication applications.
+- **Detailed Tracking:** Track crucial environmental factors, including whether the medication was applied after a shower and whether undergarments were changed.
+- **Full Control:** Easily edit or delete existing treatment logs.
 
-## 3. Feature Breakdown
+### 4. Summary Dashboard & Insights
+- **Treatment Calendar:** A visual monthly grid calendar displaying historical medication usage. It features color-coding and icon indicators for shower status and undergarment changes.
+- **Interactive Logs:** Tap any day on the calendar to view, edit, or delete the individual treatment logs for that date.
+- **Actionable Insights:** Surfaces valuable trends from treatment logs, including pre-wash compliance percentages and 5 additional key data points offering insights into treatment adherence and skin health.
 
-### Feature 1: The Interactive Body Map (Rash Tracker Tab)
-* **Requirement**: A zoomable, pannable interface using a high-resolution SVG or vector-based outline of a human figure (Front and Back views).
-* **Coordinate Mapping**: Use a ZStack where the body image is the base layer. User taps should convert local touch coordinates into a normalized 0.0 to 1.0 scale to ensure the dots stay in the correct anatomical position regardless of screen size.
-* **Rash Placement**:
-  * Long-press to drop a marker.
-  * A "Size Slider" overlay appears to adjust the diameterMM.
-  * The marker should be a semi-transparent red circle that scales based on the diameter input.
-* **Zoom/Pan**: Implementation of MagnifyGesture and DragGesture to allow the user to inspect small areas (e.g., between toes or behind ears).
+### 5. Configurable Notification System
+- **Multiple Daily Reminders:** Schedule multiple daily treatment notifications to match complex medication routines.
+- **Custom Schedules:** Configure specific, customized alerts for prescription pickups and rash photo upload requests.
+- **Personalized Messaging:** Set custom start dates, frequencies, and messages for all notification types.
 
-### Feature 2: Historical Timeline & Time-lapse
-* **Requirement**: Visualizing the "vibe" of the healing process over time.
-* **Date Scrubber**: A horizontal calendar picker at the bottom of the screen.
-* **State Reconstruction**: When a date is selected, the map filters RashEntry data to show the size and location of all rashes as they existed on that specific date.
-* **Time-lapse Mode**: An "Animate" button that cycles through dates (e.g., 0.5s per day), showing the red circles shrinking or growing based on the logged data.
+### 6. Privacy Protection
+- **Secure Backgrounding:** Automatically applies a blur effect to the app screen when it transitions to the background (e.g., when opening the app switcher). This protects sensitive medical photos from being visible to onlookers.
 
-### Feature 3: Treatment Logging (Treatment Tab)
-* **Requirement**: A streamlined form for logging medication application.
-* **Medication Library**: A List or Picker featuring common creams (Clotrimazole, Terbinafine, Ketoconazole) plus an "Add Custom" field that persists to the user's local library.
-* **Application Workflow**:
-  * Select medication.
-  * Toggle "Applied after shower?" (Yes/No).
-* **Cross-linking**: Upon saving a treatment, prompt the user: "Update rash sizes?" If yes, segue immediately to the Body Map for current-day measurements.
+## Technical Architecture
 
-## 4. Technical Implementation Notes for Antigravity
-* **Agent Instruction**: "Use SwiftUI for all views. Prioritize SwiftData for persistence. For the body map, use a Canvas or Path based approach to ensure smooth rendering of multiple rash sites. Ensure the UI follows Apple's Human Interface Guidelines for 'Health' category apps, using a clean, clinical aesthetic with Color.blue for treatments and Color.red for infection sites."
-* **Key Views to Generate**:
-  * `MainTabView`: Container for the two primary tabs.
-  * `BodyMapView`: The custom coordinate-based interaction layer.
-  * `RashDetailSheet`: A bottom sheet for editing diameter and adding notes.
-  * `TreatmentFormView`: A standard SwiftUI Form for logging medication.
-
-## 5. Success Criteria
-* User can place a dot on the "Front" view and have it persist.
-* User can slide a date picker and watch the dot size change based on historical logs.
-* A "Summary" view shows the correlation between "Medication Applied" and "Total Rash Surface Area" decreasing.
+- **Frameworks:** SwiftUI for the entire UI, ensuring a clean, clinical aesthetic that complies with Apple's Human Interface Guidelines.
+- **Persistence:** SwiftData for robust, local storage of all core data models.
+- **Coordinate Mapping:** Uses normalized coordinate scaling (0.0 to 1.0) on the Body Map so rash markers stay in the correct anatomical position regardless of the device screen size.
