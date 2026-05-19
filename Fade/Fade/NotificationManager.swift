@@ -35,12 +35,35 @@ enum NotificationFrequency: String, CaseIterable, Identifiable, Codable {
 }
 
 struct ReminderSettings: Codable, Equatable, Identifiable {
-    var id: String { type.rawValue }
+    var id: UUID
     var type: NotificationType
     var startDate: Date
     var frequency: NotificationFrequency
     var customDays: Int
     var message: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id, type, startDate, frequency, customDays, message
+    }
+    
+    init(id: UUID = UUID(), type: NotificationType, startDate: Date, frequency: NotificationFrequency, customDays: Int, message: String) {
+        self.id = id
+        self.type = type
+        self.startDate = startDate
+        self.frequency = frequency
+        self.customDays = customDays
+        self.message = message
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.type = try container.decode(NotificationType.self, forKey: .type)
+        self.startDate = try container.decode(Date.self, forKey: .startDate)
+        self.frequency = try container.decode(NotificationFrequency.self, forKey: .frequency)
+        self.customDays = try container.decode(Int.self, forKey: .customDays)
+        self.message = try container.decode(String.self, forKey: .message)
+    }
 }
 
 @MainActor
@@ -48,7 +71,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     static let shared = NotificationManager()
     
     @Published var isAuthorized: Bool = false
-    @Published var activeSettings: [NotificationType: ReminderSettings] = [:]
+    @Published var activeSettings: [ReminderSettings] = []
     @Published var selectedTabFromNotification: Int? = nil
     
     private let settingsKey = "FadeReminderSettings"
@@ -61,9 +84,17 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     private func loadSettings() {
-        if let data = UserDefaults.standard.data(forKey: settingsKey),
-           let decoded = try? JSONDecoder().decode([NotificationType: ReminderSettings].self, from: data) {
-            self.activeSettings = decoded
+        guard let data = UserDefaults.standard.data(forKey: settingsKey) else { return }
+        do {
+            self.activeSettings = try JSONDecoder().decode([ReminderSettings].self, from: data)
+        } catch {
+            if let decodedDict = try? JSONDecoder().decode([String: ReminderSettings].self, from: data) {
+                self.activeSettings = Array(decodedDict.values)
+                saveSettings()
+            } else if let decodedDict = try? JSONDecoder().decode([NotificationType: ReminderSettings].self, from: data) {
+                self.activeSettings = Array(decodedDict.values)
+                saveSettings()
+            }
         }
     }
     
@@ -90,9 +121,13 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     func scheduleReminder(settings: ReminderSettings) {
-        cancelReminder(type: settings.type)
+        cancelReminder(id: settings.id, type: settings.type)
         
-        activeSettings[settings.type] = settings
+        if let index = activeSettings.firstIndex(where: { $0.id == settings.id }) {
+            activeSettings[index] = settings
+        } else {
+            activeSettings.append(settings)
+        }
         saveSettings()
         
         let content = UNMutableNotificationContent()
@@ -102,6 +137,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         content.sound = .default
         
         let calendar = Calendar.current
+        let baseId = "\(settings.type.rawValue)-\(settings.id.uuidString)"
         
         if settings.frequency == .custom {
             let limit = min(max(1, settings.customDays), 365)
@@ -111,7 +147,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
                     if triggerDate > Date() {
                         let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)
                         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-                        let req = UNNotificationRequest(identifier: "\(settings.type.rawValue)_\(i)", content: content, trigger: trigger)
+                        let req = UNNotificationRequest(identifier: "\(baseId)_\(i)", content: content, trigger: trigger)
                         UNUserNotificationCenter.current().add(req)
                     }
                 }
@@ -124,19 +160,21 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
                 comps = calendar.dateComponents([.day, .hour, .minute], from: settings.startDate)
             }
             let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-            let req = UNNotificationRequest(identifier: settings.type.rawValue, content: content, trigger: trigger)
+            let req = UNNotificationRequest(identifier: baseId, content: content, trigger: trigger)
             UNUserNotificationCenter.current().add(req)
         }
     }
     
-    func cancelReminder(type: NotificationType) {
-        var ids = [type.rawValue]
+    func cancelReminder(id: UUID, type: NotificationType) {
+        let baseId = "\(type.rawValue)-\(id.uuidString)"
+        var ids = [baseId, type.rawValue]
         for i in 0..<60 {
-            ids.append("\(type.rawValue)_\(i)")
+            ids.append("\(baseId)_\(i)")
+            ids.append("\(type.rawValue)_\(i)") // Cancel old legacy format as well
         }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
         
-        activeSettings.removeValue(forKey: type)
+        activeSettings.removeAll { $0.id == id }
         saveSettings()
     }
     

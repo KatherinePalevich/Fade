@@ -19,6 +19,8 @@ struct SummaryView: View {
     @Query(sort: \TreatmentLog.timestamp) private var treatments: [TreatmentLog]
     @Query private var sites: [RashSite]
     
+    @StateObject private var medicationSettings = MedicationFrequencySettings.shared
+    
     enum RashFilterState: String, CaseIterable, Identifiable {
         case active = "Active"
         case healed = "Healed"
@@ -103,6 +105,8 @@ struct SummaryView: View {
                 } header: {
                     Text("Progress")
                 }
+                
+                insightsSection
                 
                 Section {
                     Picker("Filter State", selection: $filterState) {
@@ -352,6 +356,91 @@ struct SummaryView: View {
         }
         
         return dailyTotals
+    }
+    
+    private var insightsSection: some View {
+        Section(header: Text("Insights")) {
+            // Washed Before Treatment
+            let washCount = treatments.filter { $0.wasCleaned }.count
+            let washPercent = treatments.isEmpty ? 0 : Int(Double(washCount) / Double(treatments.count) * 100)
+            HStack {
+                Text("Washed Before Treatment")
+                Spacer()
+                Text("\(washPercent)%")
+                    .foregroundColor(.secondary)
+            }
+            
+            // Changed Undergarments
+            let undergarmentCount = treatments.filter { $0.changedUndergarments }.count
+            let undergarmentPercent = treatments.isEmpty ? 0 : Int(Double(undergarmentCount) / Double(treatments.count) * 100)
+            HStack {
+                Text("Changed Undergarments")
+                Spacer()
+                Text("\(undergarmentPercent)%")
+                    .foregroundColor(.secondary)
+            }
+            
+            // Photo Documentation Frequency
+            let entriesWithPhotos = entries.filter { $0.photoURL != nil }.sorted(by: { $0.timestamp < $1.timestamp })
+            if entriesWithPhotos.count > 1 {
+                let totalInterval = entriesWithPhotos.last!.timestamp.timeIntervalSince(entriesWithPhotos.first!.timestamp)
+                let avgInterval = totalInterval / Double(entriesWithPhotos.count - 1)
+                
+                HStack {
+                    Text("New Photo Frequency")
+                    Spacer()
+                    if avgInterval < 86400 {
+                        Text(String(format: "Every %.1f hours", avgInterval / 3600))
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text(String(format: "Every %.1f days", avgInterval / 86400))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } else {
+                HStack {
+                    Text("New Photo Frequency")
+                    Spacer()
+                    Text("Not enough data")
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Treatment Adherence Rate
+            let adherencePercent = calculateAdherenceRate()
+            HStack {
+                Text("Treatment Adherence")
+                Spacer()
+                if adherencePercent >= 0 {
+                    Text("\(adherencePercent)%")
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("Not enough data")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+    
+    private func calculateAdherenceRate() -> Int {
+        var totalExpected = 0
+        var totalActual = 0
+        
+        for (medication, frequency) in medicationSettings.frequencies {
+            let medLogs = treatments.filter { $0.medicationName == medication }
+            guard let firstLog = medLogs.min(by: { $0.timestamp < $1.timestamp }) else { continue }
+            
+            let daysElapsed = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: firstLog.timestamp), to: Calendar.current.startOfDay(for: Date())).day ?? 0
+            
+            totalExpected += max(1, (daysElapsed + 1)) * frequency
+            totalActual += medLogs.count
+        }
+        
+        if totalExpected == 0 {
+            return -1 // No data or no frequencies set for active medications
+        }
+        
+        return min(100, Int(Double(totalActual) / Double(totalExpected) * 100))
     }
 }
 
