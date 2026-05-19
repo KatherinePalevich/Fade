@@ -6,6 +6,8 @@ struct PhotoAssignerView: View {
     @Query private var sites: [RashSite]
     
     let newImage: UIImage
+    var captureDate: Date? = nil
+    var flashFired: Bool? = nil
     @Binding var isPresented: Bool
     
     @State private var isCreatingNew = false
@@ -92,7 +94,7 @@ struct PhotoAssignerView: View {
             }
             .navigationDestination(item: $siteForAlignment) { site in
                 if let oldImg = oldImageForAlignment {
-                    PhotoAlignmentView(oldImage: oldImg, newImage: newImage, site: site, isPresented: $isPresented)
+                    PhotoAlignmentView(oldImage: oldImg, newImage: newImage, site: site, captureDate: captureDate, flashFired: flashFired, isPresented: $isPresented)
                 }
             }
         }
@@ -105,7 +107,7 @@ struct PhotoAssignerView: View {
         let photoName = UUID().uuidString
         _ = ImageStore.shared.saveImage(newImage, withName: photoName)
         
-        let entry = RashEntry(timestamp: Date(), diameterMM: 20.0, photoURL: photoName)
+        let entry = RashEntry(timestamp: captureDate ?? Date(), diameterMM: 20.0, photoURL: photoName, flashFired: flashFired)
         newSite.entries.append(entry)
         entry.site = newSite
         
@@ -123,7 +125,7 @@ struct PhotoAssignerView: View {
             let photoName = UUID().uuidString
             _ = ImageStore.shared.saveImage(newImage, withName: photoName)
             
-            let entry = RashEntry(timestamp: Date(), diameterMM: 20.0, photoURL: photoName)
+            let entry = RashEntry(timestamp: captureDate ?? Date(), diameterMM: 20.0, photoURL: photoName, flashFired: flashFired)
             site.entries.append(entry)
             entry.site = site
             

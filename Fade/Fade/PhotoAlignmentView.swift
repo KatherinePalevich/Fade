@@ -6,6 +6,8 @@ struct PhotoAlignmentView: View {
     let oldImage: UIImage
     let newImage: UIImage
     let site: RashSite
+    var captureDate: Date? = nil
+    var flashFired: Bool? = nil
     @Binding var isPresented: Bool
     
     @State private var offset: CGSize = .zero
@@ -136,7 +138,7 @@ struct PhotoAlignmentView: View {
             let photoName = UUID().uuidString
             _ = ImageStore.shared.saveImage(finalImage, withName: photoName)
             
-            let entry = RashEntry(timestamp: Date(), diameterMM: 20.0, photoURL: photoName)
+            let entry = RashEntry(timestamp: captureDate ?? Date(), diameterMM: 20.0, photoURL: photoName, flashFired: flashFired)
             site.entries.append(entry)
             entry.site = site
         }

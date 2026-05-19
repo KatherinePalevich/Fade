@@ -39,14 +39,16 @@ final class RashEntry {
     var timestamp: Date
     var diameterMM: Double
     var photoURL: String?
+    var flashFired: Bool?
     
     var site: RashSite?
     
-    init(id: UUID = UUID(), timestamp: Date, diameterMM: Double, photoURL: String? = nil) {
+    init(id: UUID = UUID(), timestamp: Date, diameterMM: Double, photoURL: String? = nil, flashFired: Bool? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.diameterMM = diameterMM
         self.photoURL = photoURL
+        self.flashFired = flashFired
     }
 }
 

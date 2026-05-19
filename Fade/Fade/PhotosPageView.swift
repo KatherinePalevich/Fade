@@ -1,11 +1,14 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import ImageIO
 
 struct PhotosPageView: View {
     @Query private var sites: [RashSite]
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
+    @State private var captureDate: Date?
+    @State private var flashFired: Bool?
     @State private var showingAssigner = false
     
     var body: some View {
@@ -53,21 +56,42 @@ struct PhotosPageView: View {
         }
         .onChange(of: selectedItem) { _, newItem in
             Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self),
-                   let uiImage = UIImage(data: data) {
-                    let resizedImage = await Task.detached {
-                        ImageStore.shared.resizeImage(image: uiImage)
-                    }.value
+                if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                    var extractedDate: Date? = nil
+                    var extractedFlash: Bool? = nil
                     
-                    selectedImage = resizedImage
-                    showingAssigner = true
+                    if let source = CGImageSourceCreateWithData(data as CFData, nil),
+                       let metadata = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+                       let exif = metadata[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+                        
+                        if let dateString = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String {
+                            let formatter = DateFormatter()
+                            formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+                            extractedDate = formatter.date(from: dateString)
+                        }
+                        
+                        if let flash = exif[kCGImagePropertyExifFlash as String] as? Int {
+                            extractedFlash = (flash & 1) != 0
+                        }
+                    }
+                    
+                    if let uiImage = UIImage(data: data) {
+                        let resizedImage = await Task.detached {
+                            ImageStore.shared.resizeImage(image: uiImage)
+                        }.value
+                        
+                        captureDate = extractedDate
+                        flashFired = extractedFlash
+                        selectedImage = resizedImage
+                        showingAssigner = true
+                    }
                 }
                 selectedItem = nil // reset
             }
         }
         .sheet(isPresented: $showingAssigner) {
             if let image = selectedImage {
-                PhotoAssignerView(newImage: image, isPresented: $showingAssigner)
+                PhotoAssignerView(newImage: image, captureDate: captureDate, flashFired: flashFired, isPresented: $showingAssigner)
             }
         }
     }
@@ -102,13 +126,18 @@ struct TimelapseCarouselView: View {
                 VStack {
                     Spacer()
                     if !entries.isEmpty {
-                        Text(entries[currentIndex].timestamp, format: .dateTime)
-                            .font(.caption)
-                            .padding(6)
-                            .background(Color.black.opacity(0.6))
-                            .foregroundColor(.white)
-                            .cornerRadius(6)
-                            .padding(8)
+                        HStack(spacing: 4) {
+                            if let flashFired = entries[currentIndex].flashFired {
+                                Image(systemName: flashFired ? "bolt.fill" : "bolt.slash.fill")
+                            }
+                            Text(entries[currentIndex].timestamp, format: .dateTime)
+                        }
+                        .font(.caption)
+                        .padding(6)
+                        .background(Color.black.opacity(0.6))
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .padding(8)
                     }
                 }
             }
