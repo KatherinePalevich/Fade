@@ -4,9 +4,6 @@ struct NotificationSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var notificationManager = NotificationManager.shared
     
-    @State private var selectedTime: Date = Date()
-    @State private var customMessage: String = ""
-    
     var body: some View {
         NavigationStack {
             Form {
@@ -25,53 +22,12 @@ struct NotificationSettingsView: View {
                 }
                 
                 if notificationManager.isAuthorized {
-                    if !notificationManager.pendingReminders.isEmpty {
-                        Section(header: Text("Current Reminders")) {
-                            List {
-                                ForEach(notificationManager.pendingReminders) { reminder in
-                                    HStack {
-                                        VStack(alignment: .leading) {
-                                            Text(reminder.time, style: .time)
-                                                .font(.headline)
-                                            Text(reminder.message)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Spacer()
-                                        Button(role: .destructive) {
-                                            notificationManager.cancelReminder(id: reminder.id)
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .foregroundColor(.red)
-                                        }
-                                        .buttonStyle(.borderless)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        Section(header: Text("Current Reminders")) {
-                            Text("No active reminders.")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    
-                    Section(header: Text("Add New Reminder")) {
-                        DatePicker("Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
-                        
-                        TextField("Message (optional)", text: $customMessage)
-                        
-                        Button("Add Reminder") {
-                            notificationManager.scheduleDailyReminder(time: selectedTime, message: customMessage)
-                            selectedTime = Date()
-                            customMessage = ""
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(notificationManager.isAuthorized == false)
-                    }
+                    ReminderSettingsSection(notificationManager: notificationManager, type: .daily)
+                    ReminderSettingsSection(notificationManager: notificationManager, type: .prescription)
+                    ReminderSettingsSection(notificationManager: notificationManager, type: .photo)
                 } else {
                     Section {
-                        Text("Please enable notifications to set a daily reminder.")
+                        Text("Please enable notifications to set reminders.")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -87,8 +43,95 @@ struct NotificationSettingsView: View {
             }
             .onAppear {
                 notificationManager.checkAuthorizationStatus()
-                notificationManager.fetchPendingRequests()
             }
         }
+    }
+}
+
+struct ReminderSettingsSection: View {
+    @ObservedObject var notificationManager: NotificationManager
+    let type: NotificationType
+    
+    @State private var isEnabled: Bool = false
+    @State private var startDate: Date = Date()
+    @State private var frequency: NotificationFrequency = .daily
+    @State private var customDays: String = "1"
+    @State private var message: String = ""
+    
+    var body: some View {
+        Section(header: Text(type.displayName)) {
+            Toggle("Enable Reminder", isOn: $isEnabled)
+                .onChange(of: isEnabled) { newValue in
+                    if !newValue {
+                        notificationManager.cancelReminder(type: type)
+                    } else if notificationManager.activeSettings[type] == nil {
+                        save()
+                    }
+                }
+            
+            if isEnabled {
+                DatePicker("Start Date & Time", selection: $startDate)
+                
+                Picker("Frequency", selection: $frequency) {
+                    ForEach(NotificationFrequency.allCases) { freq in
+                        Text(freq.rawValue).tag(freq)
+                    }
+                }
+                
+                if frequency == .custom {
+                    HStack {
+                        Text("Every (days)")
+                        Spacer()
+                        TextField("Days", text: $customDays)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+                
+                VStack(alignment: .leading) {
+                    Text("Message")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField(type.defaultMessage, text: $message)
+                }
+                
+                Button("Save Changes") {
+                    save()
+                }
+                .buttonStyle(.borderless)
+                .foregroundColor(.blue)
+            }
+        }
+        .onAppear {
+            if let active = notificationManager.activeSettings[type] {
+                isEnabled = true
+                startDate = active.startDate
+                frequency = active.frequency
+                customDays = String(active.customDays)
+                message = active.message
+            } else {
+                isEnabled = false
+                startDate = Date()
+                frequency = type == .daily ? .daily : .weekly
+                customDays = "1"
+                message = type.defaultMessage
+            }
+        }
+    }
+    
+    private func save() {
+        let days = max(1, Int(customDays) ?? 1)
+        let settings = ReminderSettings(
+            type: type,
+            startDate: startDate,
+            frequency: frequency,
+            customDays: days,
+            message: message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? type.defaultMessage : message
+        )
+        notificationManager.scheduleReminder(settings: settings)
+        
+        // Update local state to reflect exact saved values
+        customDays = String(days)
+        message = settings.message
     }
 }

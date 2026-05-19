@@ -2,12 +2,45 @@ import Foundation
 import UserNotifications
 import SwiftUI
 import Combine
-import Combine
 
-struct ScheduledReminder: Identifiable {
-    let id: String
-    let time: Date
-    let message: String
+enum NotificationType: String, CaseIterable, Identifiable, Codable {
+    case daily = "daily_treatment_reminder"
+    case prescription = "prescription_pickup_reminder"
+    case photo = "rash_photo_reminder"
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .daily: return "Daily Treatment"
+        case .prescription: return "Prescription Pickup"
+        case .photo: return "Rash Photo Update"
+        }
+    }
+    
+    var defaultMessage: String {
+        switch self {
+        case .daily: return "Time to log your Fade treatments!"
+        case .prescription: return "Your prescription is ready for pickup."
+        case .photo: return "Time to upload a new photo for your rash sites."
+        }
+    }
+}
+
+enum NotificationFrequency: String, CaseIterable, Identifiable, Codable {
+    case daily = "Daily"
+    case weekly = "Weekly"
+    case monthly = "Monthly"
+    case custom = "Custom"
+    var id: String { rawValue }
+}
+
+struct ReminderSettings: Codable, Equatable, Identifiable {
+    var id: String { type.rawValue }
+    var type: NotificationType
+    var startDate: Date
+    var frequency: NotificationFrequency
+    var customDays: Int
+    var message: String
 }
 
 @MainActor
@@ -15,23 +48,35 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     static let shared = NotificationManager()
     
     @Published var isAuthorized: Bool = false
-    @Published var pendingReminders: [ScheduledReminder] = []
+    @Published var activeSettings: [NotificationType: ReminderSettings] = [:]
     @Published var selectedTabFromNotification: Int? = nil
+    
+    private let settingsKey = "FadeReminderSettings"
     
     private override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        loadSettings()
         checkAuthorizationStatus()
-        fetchPendingRequests()
+    }
+    
+    private func loadSettings() {
+        if let data = UserDefaults.standard.data(forKey: settingsKey),
+           let decoded = try? JSONDecoder().decode([NotificationType: ReminderSettings].self, from: data) {
+            self.activeSettings = decoded
+        }
+    }
+    
+    private func saveSettings() {
+        if let data = try? JSONEncoder().encode(activeSettings) {
+            UserDefaults.standard.set(data, forKey: settingsKey)
+        }
     }
     
     func requestAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             DispatchQueue.main.async {
                 self.isAuthorized = granted
-                if granted {
-                    self.fetchPendingRequests()
-                }
             }
         }
     }
@@ -44,62 +89,66 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
-    func fetchPendingRequests() {
-        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
-            let reminderRequests = requests.filter { $0.identifier.hasPrefix("daily_treatment_reminder") }
-            var newReminders: [ScheduledReminder] = []
-            
-            for request in reminderRequests {
-                if let trigger = request.trigger as? UNCalendarNotificationTrigger {
-                    let hour = trigger.dateComponents.hour ?? 0
-                    let minute = trigger.dateComponents.minute ?? 0
-                    var comps = DateComponents()
-                    comps.hour = hour
-                    comps.minute = minute
-                    if let date = Calendar.current.date(from: comps) {
-                        newReminders.append(ScheduledReminder(id: request.identifier, time: date, message: request.content.body))
+    func scheduleReminder(settings: ReminderSettings) {
+        cancelReminder(type: settings.type)
+        
+        activeSettings[settings.type] = settings
+        saveSettings()
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Fade Reminder"
+        let msg = settings.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        content.body = msg.isEmpty ? settings.type.defaultMessage : msg
+        content.sound = .default
+        
+        let calendar = Calendar.current
+        
+        if settings.frequency == .custom {
+            let limit = min(max(1, settings.customDays), 365)
+            // Schedule up to 60 occurrences
+            for i in 0..<60 {
+                if let triggerDate = calendar.date(byAdding: .day, value: i * limit, to: settings.startDate) {
+                    if triggerDate > Date() {
+                        let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)
+                        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+                        let req = UNNotificationRequest(identifier: "\(settings.type.rawValue)_\(i)", content: content, trigger: trigger)
+                        UNUserNotificationCenter.current().add(req)
                     }
                 }
             }
-            
-            newReminders.sort { $0.time < $1.time }
-            
-            DispatchQueue.main.async {
-                self.pendingReminders = newReminders
+        } else {
+            var comps = calendar.dateComponents([.hour, .minute], from: settings.startDate)
+            if settings.frequency == .weekly {
+                comps = calendar.dateComponents([.weekday, .hour, .minute], from: settings.startDate)
+            } else if settings.frequency == .monthly {
+                comps = calendar.dateComponents([.day, .hour, .minute], from: settings.startDate)
             }
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            let req = UNNotificationRequest(identifier: settings.type.rawValue, content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(req)
         }
     }
     
-    func scheduleDailyReminder(time: Date, message: String) {
-        let content = UNMutableNotificationContent()
-        content.title = "Fade Reminder"
-        content.body = message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Time to log your Fade treatments!" : message
-        content.sound = .default
-        
-        let components = Calendar.current.dateComponents([.hour, .minute], from: time)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        
-        let uniqueID = "daily_treatment_reminder_\(UUID().uuidString)"
-        let request = UNNotificationRequest(identifier: uniqueID, content: content, trigger: trigger)
-        
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Error scheduling notification: \(error)")
-            } else {
-                self.fetchPendingRequests()
-            }
+    func cancelReminder(type: NotificationType) {
+        var ids = [type.rawValue]
+        for i in 0..<60 {
+            ids.append("\(type.rawValue)_\(i)")
         }
-    }
-    
-    func cancelReminder(id: String) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
-        self.fetchPendingRequests()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        
+        activeSettings.removeValue(forKey: type)
+        saveSettings()
     }
     
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        if response.notification.request.identifier.hasPrefix("daily_treatment_reminder") {
-            DispatchQueue.main.async {
-                self.selectedTabFromNotification = 1
+        let identifier = response.notification.request.identifier
+        DispatchQueue.main.async {
+            if identifier.hasPrefix(NotificationType.daily.rawValue) {
+                self.selectedTabFromNotification = 1 // Summary tab?
+            } else if identifier.hasPrefix(NotificationType.photo.rawValue) {
+                self.selectedTabFromNotification = 0 // Body map tab?
+            } else if identifier.hasPrefix(NotificationType.prescription.rawValue) {
+                self.selectedTabFromNotification = 1 // Summary tab?
             }
         }
         completionHandler()
