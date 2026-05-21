@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import SwiftData
 
 class MedicationFrequencySettings: ObservableObject {
     static let shared = MedicationFrequencySettings()
@@ -22,8 +23,17 @@ class MedicationFrequencySettings: ObservableObject {
 
 struct NotificationSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var notificationManager = NotificationManager.shared
-    @StateObject private var medicationSettings = MedicationFrequencySettings.shared
+    @ObservedObject private var notificationManager = NotificationManager.shared
+    @ObservedObject private var medicationSettings = MedicationFrequencySettings.shared
+    
+    @Query private var treatments: [TreatmentLog]
+    
+    var availableMedications: [String] {
+        let standard = ["Terbinafine 1%", "Clotrimazole 1%", "Ketoconazole 2%"]
+        let logged = treatments.map { $0.medicationName }
+        let all = Set(standard + logged)
+        return Array(all).sorted()
+    }
     
     @State private var newMedicationName = ""
     @State private var newMedicationFrequency = 1
@@ -61,7 +71,15 @@ struct NotificationSettingsView: View {
                     }
                     
                     HStack {
-                        TextField("Medication Name", text: $newMedicationName)
+                        Picker("Medication", selection: $newMedicationName) {
+                            Text("Select Medication").tag("")
+                            ForEach(availableMedications, id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        
                         Stepper("\(newMedicationFrequency) / day", value: $newMedicationFrequency, in: 1...5)
                         Button(action: {
                             if !newMedicationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

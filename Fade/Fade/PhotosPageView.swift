@@ -34,7 +34,6 @@ struct PhotosPageView: View {
                                 .padding(.horizontal)
                             
                             let photos = site.entries
-                                .filter { $0.photoURL != nil }
                                 .sorted { $0.timestamp < $1.timestamp }
                                 
                             TimelapseCarouselView(entries: photos)
@@ -118,7 +117,7 @@ struct TimelapseCarouselView: View {
                     } else {
                         Rectangle()
                             .fill(Color.gray.opacity(0.3))
-                        Text("Image missing")
+                        Text("No photo for this log")
                     }
                 }
                 

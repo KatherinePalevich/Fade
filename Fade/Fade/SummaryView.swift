@@ -19,7 +19,7 @@ struct SummaryView: View {
     @Query(sort: \TreatmentLog.timestamp) private var treatments: [TreatmentLog]
     @Query private var sites: [RashSite]
     
-    @StateObject private var medicationSettings = MedicationFrequencySettings.shared
+    @ObservedObject private var medicationSettings = MedicationFrequencySettings.shared
     
     enum RashFilterState: String, CaseIterable, Identifiable {
         case active = "Active"
@@ -56,7 +56,13 @@ struct SummaryView: View {
                             Chart {
                                 let aggregated = aggregateEntriesByDay(entries: entries)
                                 
-                                ForEach(aggregated.sorted(by: { $0.key < $1.key }), id: \.key) { date, area in
+                                let firstTreatmentDate = treatments.min(by: { $0.timestamp < $1.timestamp })?.timestamp
+                                let firstRecordedRashDate = entries.filter { $0.photoURL == nil }.min(by: { $0.timestamp < $1.timestamp })?.timestamp
+                                let cutoffDate = Calendar.current.startOfDay(for: firstTreatmentDate ?? firstRecordedRashDate ?? Date.distantPast)
+                                
+                                let filteredAggregated = aggregated.filter { $0.key >= cutoffDate }
+                                
+                                ForEach(filteredAggregated.sorted(by: { $0.key < $1.key }), id: \.key) { date, area in
                                     LineMark(
                                         x: .value("Date", date),
                                         y: .value("Total Area (mm²)", area)
@@ -339,6 +345,7 @@ struct SummaryView: View {
         for entry in entries {
             allDates.insert(calendar.startOfDay(for: entry.timestamp))
         }
+        allDates.insert(calendar.startOfDay(for: Date()))
         
         for date in allDates {
             var totalArea: Double = 0

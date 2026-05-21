@@ -292,8 +292,10 @@ struct BodyMapView: View {
     }
     
     private func updateAvailableDates() {
-        let allEntries = sites.flatMap { $0.entries }.sorted(by: { $0.timestamp < $1.timestamp })
-        guard let first = allEntries.first?.timestamp else { return }
+        let allEntries = sites.flatMap { $0.entries }
+        let recordedEntries = allEntries.filter { $0.photoURL == nil }.sorted(by: { $0.timestamp < $1.timestamp })
+        
+        guard let first = recordedEntries.first?.timestamp ?? allEntries.sorted(by: { $0.timestamp < $1.timestamp }).first?.timestamp else { return }
         
         availableDates = [first, Date()]
         currentDateFilter = Date()
