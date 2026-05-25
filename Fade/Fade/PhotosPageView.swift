@@ -4,12 +4,16 @@ import PhotosUI
 import ImageIO
 
 struct PhotosPageView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var sites: [RashSite]
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var captureDate: Date?
     @State private var flashFired: Bool?
     @State private var showingAssigner = false
+    @State private var isEditing = false
+    @State private var siteToDelete: RashSite? = nil
+    @State private var showingDeleteConfirmation = false
     
     var body: some View {
         ScrollView {
@@ -29,9 +33,25 @@ struct PhotosPageView: View {
                 } else {
                     ForEach(sitesWithPhotos) { site in
                         VStack(alignment: .leading) {
-                            Text(site.name.isEmpty ? "Rash on \(site.bodySide.rawValue)" : site.name)
-                                .font(.headline)
-                                .padding(.horizontal)
+                            HStack {
+                                Text(site.name.isEmpty ? "Rash on \(site.bodySide.rawValue)" : site.name)
+                                    .font(.headline)
+                                
+                                Spacer()
+                                
+                                if isEditing {
+                                    Button(role: .destructive) {
+                                        siteToDelete = site
+                                        showingDeleteConfirmation = true
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .foregroundColor(.red)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .transition(.opacity.combined(with: .scale))
+                                }
+                            }
+                            .padding(.horizontal)
                             
                             let photos = site.entries
                                 .sorted { $0.timestamp < $1.timestamp }
@@ -48,8 +68,17 @@ struct PhotosPageView: View {
         .navigationTitle("Photos")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                PhotosPicker(selection: $selectedItem, matching: .images) {
-                    Image(systemName: "photo.badge.plus")
+                HStack(spacing: 16) {
+                    Button(isEditing ? "Done" : "Edit") {
+                        withAnimation {
+                            isEditing.toggle()
+                        }
+                    }
+                    .fontWeight(isEditing ? .bold : .regular)
+                    
+                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                        Image(systemName: "photo.badge.plus")
+                    }
                 }
             }
         }
@@ -93,6 +122,30 @@ struct PhotosPageView: View {
                 PhotoAssignerView(newImage: image, captureDate: captureDate, flashFired: flashFired, isPresented: $showingAssigner)
             }
         }
+        .alert(
+            "Are you sure you want to delete this rash site?",
+            isPresented: $showingDeleteConfirmation,
+            presenting: siteToDelete
+        ) { site in
+            Button("Delete", role: .destructive) {
+                deleteSite(site)
+            }
+            Button("Cancel", role: .cancel) {
+                siteToDelete = nil
+            }
+        } message: { site in
+            Text("This will permanently delete '\(site.name.isEmpty ? "Rash on \(site.bodySide.rawValue)" : site.name)' and all its photos. This action cannot be undone.")
+        }
+    }
+    
+    private func deleteSite(_ site: RashSite) {
+        for entry in site.entries {
+            if let photoURL = entry.photoURL {
+                ImageStore.shared.deleteImage(named: photoURL)
+            }
+        }
+        modelContext.delete(site)
+        siteToDelete = nil
     }
 }
 
