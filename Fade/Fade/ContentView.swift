@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var selectedTab = 0
+    @State private var selectedTab = 2
     @State private var activeTreatmentContext: TreatmentLog?
     @State private var isEditMode = false
     @State private var editingTreatmentLog: TreatmentLog?
