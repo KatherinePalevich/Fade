@@ -128,4 +128,32 @@ class ImageStore {
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
+    
+    var customSilhouetteURL: URL {
+        documentsDirectory.appendingPathComponent("custom_silhouette.png")
+    }
+    
+    func saveCustomSilhouette(_ image: UIImage) -> Bool {
+        guard let data = image.pngData() else { return false }
+        do {
+            try data.write(to: customSilhouetteURL)
+            return true
+        } catch {
+            print("Error saving custom silhouette: \(error)")
+            return false
+        }
+    }
+    
+    func loadCustomSilhouette() -> UIImage? {
+        guard let data = try? Data(contentsOf: customSilhouetteURL) else { return nil }
+        return UIImage(data: data)
+    }
+    
+    func deleteCustomSilhouette() {
+        try? FileManager.default.removeItem(at: customSilhouetteURL)
+    }
+    
+    func customSilhouetteExists() -> Bool {
+        FileManager.default.fileExists(atPath: customSilhouetteURL.path)
+    }
 }

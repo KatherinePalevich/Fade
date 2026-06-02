@@ -7,7 +7,9 @@ struct BodyMapView: View {
     
     @AppStorage("waistWidthCM") private var waistWidthCM: Double = 32.0
     @AppStorage("heightCM") private var heightCM: Double = 162.56
+    @AppStorage("customSilhouetteVersion") private var customSilhouetteVersion: Int = 0
     @State private var showingMeasurementSettings = false
+    @State private var customSilhouette: UIImage? = nil
     
     @Binding var activeTreatmentContext: TreatmentLog?
     @Binding var isEditMode: Bool
@@ -87,10 +89,17 @@ struct BodyMapView: View {
                     Color.white.ignoresSafeArea()
                     
                     ZStack {
-                        Image("HumanSilhouette")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        if let customSilhouette = customSilhouette {
+                            Image(uiImage: customSilhouette)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            Image("HumanSilhouette")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
                         
                         Color.clear
                             .contentShape(Rectangle())
@@ -169,6 +178,10 @@ struct BodyMapView: View {
         }
         .onAppear {
             updateAvailableDates()
+            loadCustomSilhouette()
+        }
+        .onChange(of: customSilhouetteVersion) { oldValue, newValue in
+            loadCustomSilhouette()
         }
         .sheet(isPresented: $showingMeasurementSettings) {
             WaistMeasurementSettingsView()
@@ -327,6 +340,10 @@ struct BodyMapView: View {
             }
         }
     }
+    
+    private func loadCustomSilhouette() {
+        customSilhouette = ImageStore.shared.loadCustomSilhouette()
+    }
 }
 
 
@@ -427,6 +444,12 @@ struct WaistMeasurementSettingsView: View {
                             .frame(width: 100)
                     }
                 }
+                
+                Section(header: Text("Personal Silhouette"), footer: Text("Uploading a personal silhouette allows the app to map rash locations more accurately onto your actual body shape, ensuring a more precise visual history of your treatments.")) {
+                    NavigationLink(destination: SilhouetteTracerView()) {
+                        Text("Upload Personal Silhouette")
+                    }
+                }
             }
             .navigationTitle("Measurements")
             .navigationBarTitleDisplayMode(.inline)
@@ -455,7 +478,7 @@ struct WaistMeasurementSettingsView: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.45)])
+        .presentationDetents([.large])
     }
     
     private func save() {
