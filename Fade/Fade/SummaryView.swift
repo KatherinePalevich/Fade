@@ -11,6 +11,14 @@ fileprivate func colorForMedication(_ name: String) -> Color {
     }
 }
 
+fileprivate func colorForOralMedication(_ name: String) -> Color {
+    switch name {
+    case "Itraconazole": return .cyan
+    case "Terbinafine": return .indigo
+    default: return .secondary
+    }
+}
+
 struct SummaryView: View {
     @Binding var selectedTab: Int
     @Binding var editingTreatmentLog: TreatmentLog?
@@ -217,6 +225,17 @@ struct SummaryView: View {
                                         .foregroundColor(colorForMedication(treatment.medicationName))
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.8)
+                                    
+                                    if let oral = treatment.oralMedicationName, !oral.isEmpty {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "pill.fill")
+                                                .foregroundColor(colorForOralMedication(oral))
+                                                .font(.subheadline)
+                                            Text(oral)
+                                                .font(.subheadline)
+                                                .fontWeight(.semibold)
+                                        }
+                                    }
                                     
                                     Text(treatment.timestamp, format: .dateTime.hour().minute())
                                         .font(.subheadline)
@@ -550,6 +569,13 @@ struct TreatmentCalendarView: View {
                                             Image(systemName: "plus")
                                                 .foregroundColor(colorForMedication(treatment.medicationName))
                                                 .font(.system(size: 8, weight: .bold))
+                                            
+                                            if let oral = treatment.oralMedicationName, !oral.isEmpty {
+                                                Image(systemName: "pill.fill")
+                                                    .foregroundColor(colorForOralMedication(oral))
+                                                    .font(.system(size: 8))
+                                            }
+                                            
                                             if treatment.wasCleaned {
                                                 Image(systemName: "drop.fill")
                                                     .foregroundColor(.blue)
@@ -585,22 +611,34 @@ struct TreatmentCalendarView: View {
             // Legend
             VStack(alignment: .leading, spacing: 4) {
                 Text("Medication Key").font(.caption).foregroundColor(.secondary).padding(.top, 8)
-                HStack(spacing: 12) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").foregroundColor(.purple).font(.caption2)
-                        Text("Terbinafine").font(.caption2)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus").foregroundColor(.purple).font(.caption2)
+                            Text("Terbinafine").font(.caption2)
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus").foregroundColor(.orange).font(.caption2)
+                            Text("Clotrimazole").font(.caption2)
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus").foregroundColor(.mint).font(.caption2)
+                            Text("Ketoconazole").font(.caption2)
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus").foregroundColor(.pink).font(.caption2)
+                            Text("Custom").font(.caption2)
+                        }
                     }
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").foregroundColor(.orange).font(.caption2)
-                        Text("Clotrimazole").font(.caption2)
-                    }
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").foregroundColor(.mint).font(.caption2)
-                        Text("Ketoconazole").font(.caption2)
-                    }
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").foregroundColor(.pink).font(.caption2)
-                        Text("Custom").font(.caption2)
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pill.fill").foregroundColor(.cyan).font(.caption2)
+                            Text("Itraconazole").font(.caption2)
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "pill.fill").foregroundColor(.indigo).font(.caption2)
+                            Text("Terbinafine (Oral)").font(.caption2)
+                        }
                     }
                 }
             }

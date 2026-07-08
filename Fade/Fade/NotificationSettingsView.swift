@@ -29,9 +29,10 @@ struct NotificationSettingsView: View {
     @Query private var treatments: [TreatmentLog]
     
     var availableMedications: [String] {
-        let standard = ["Terbinafine 1%", "Clotrimazole 1%", "Ketoconazole 2%"]
-        let logged = treatments.map { $0.medicationName }
-        let all = Set(standard + logged)
+        let standard = ["Terbinafine 1%", "Clotrimazole 1%", "Ketoconazole 2%", "Terbinafine", "Itraconazole"]
+        let loggedCreams = treatments.map { $0.medicationName }
+        let loggedOrals = treatments.compactMap { $0.oralMedicationName }
+        let all = Set(standard + loggedCreams + loggedOrals)
         return Array(all).sorted()
     }
     
