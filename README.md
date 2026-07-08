@@ -10,7 +10,13 @@ Fade is a specialized health utility application for iOS designed to help users 
 ## Body Rash Map
 | Visualize Rashes | Set Measurements | Crop and Align Rash Photos | View Progress of Rashes Through Photos |
 | :---: | :---: | :---: | :---: |
-| <img width="300" alt="image" src="https://github.com/user-attachments/assets/7fcc5cfc-9ce6-4afb-92a9-57f3d5d9dfcb" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/ff7a427c-3633-4bc6-b1d5-d87dffd69e19" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/afed6e0b-aa29-48bf-ab89-b881804e69f4" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/8e7ab42e-e87f-4a68-bcb6-acc005516625" /> |
+| <img width="300" alt="image" src="https://github.com/user-attachments/assets/7fcc5cfc-9ce6-4afb-92a9-57f3d5d9dfcb" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/6f1f751c-a599-4447-8e8c-cba184f2d23e" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/afed6e0b-aa29-48bf-ab89-b881804e69f4" />| <img width="300" alt="image" src="https://github.com/user-attachments/assets/8e7ab42e-e87f-4a68-bcb6-acc005516625" /> |
+
+## Body Rash Map: Custom Silhouette Options
+| Default Body | Shrink and Stretch | Trace Your Own Image | Paste Lifted Subject |
+| :---: | :---: | :---: | :---: |
+| <img width="300" alt="Simulator Screenshot - iPhone 17 - 2026-06-01 at 18 10 01" src="https://github.com/user-attachments/assets/e4bd7136-f65e-48e2-8564-7c082e1be625" />| <img width="300" alt="Simulator Screenshot - iPhone 17 - 2026-06-01 at 18 24 25" src="https://github.com/user-attachments/assets/ff20b4ef-2977-4ed1-bcb9-7d287878fd00" />| <img width="300" alt="Simulator Screenshot - iPhone 17 - 2026-06-01 at 18 19 07" src="https://github.com/user-attachments/assets/e0eab357-8780-484b-854c-da7a057a42c0" />| <img width="300" alt="Simulator Screenshot - iPhone 17 - 2026-06-01 at 18 19 32" src="https://github.com/user-attachments/assets/10927ecf-151a-4de0-b9ca-198776300109" /> |
+
 
 ## Core Features
 
